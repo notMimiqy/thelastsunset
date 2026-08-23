@@ -1377,6 +1377,13 @@ function playSCPTransmission() {
 
   let playedOnce = false;
   let isPlaying = false;
+  let alertNodes = [];
+  let alertInterval = null;
+  let alertStarted = false;
+  let audioCtx = null;
+  let analyser = null;
+  let mediaSource = null;
+  let visAnimId = null;
 
   overlay = document.createElement('div');
   overlay.id = 'scp-video-overlay';
@@ -1389,10 +1396,8 @@ function playSCPTransmission() {
       border:1px solid #c9a227;
       border-radius:6px;
       box-shadow:0 0 40px rgba(201,162,39,0.25), inset 0 0 0 1px rgba(201,162,39,0.15);
-      overflow:hidden;
-      position:relative;
+      overflow:hidden;position:relative;
     ">
-      <!-- Header -->
       <div style="
         background:linear-gradient(180deg,#1a1a2e,#0f0f1a);
         border-bottom:1px solid #c9a227;
@@ -1402,20 +1407,16 @@ function playSCPTransmission() {
         <div style="color:#c9a227;font-size:12px;letter-spacing:2px;font-weight:600;">
           ⬛ SCP // CLASSIFIED TRANSMISSION
         </div>
-        <div style="color:#666;font-size:10px;letter-spacing:1px;">SITE-04 · O4</div>
+        <div id="scp-header-status" style="color:#666;font-size:10px;letter-spacing:1px;">ОЖИДАНИЕ СИГНАЛА</div>
       </div>
 
-      <!-- Video area -->
       <div style="position:relative;background:#000;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;">
-        <video id="scp-vid"
-               src="anons_scp_visualizer.mp4"
-               playsinline
-               style="width:100%;height:100%;object-fit:contain;background:#000;display:block;">
-        </video>
-        <!-- Big play overlay (shown before first play) -->
+        <video id="scp-vid" src="anons_scp_visualizer.mp4" playsinline crossorigin="anonymous"
+               style="width:100%;height:100%;object-fit:contain;background:#000;display:block;"></video>
+        <canvas id="scp-vis" style="position:absolute;left:0;right:0;bottom:0;height:64px;width:100%;pointer-events:none;opacity:0.85;"></canvas>
         <div id="scp-big-play" style="
           position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-          background:rgba(0,0,0,0.45);cursor:pointer;transition:background 0.2s;
+          background:rgba(0,0,0,0.45);cursor:pointer;z-index:2;
         ">
           <div style="
             width:72px;height:72px;border-radius:50%;
@@ -1425,49 +1426,34 @@ function playSCPTransmission() {
             font-size:28px;color:#1a1a2e;padding-left:4px;
           ">▶</div>
         </div>
-        <!-- Ended overlay -->
         <div id="scp-ended-overlay" style="
           position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;
-          background:rgba(0,0,0,0.75);color:#c9a227;font-size:13px;letter-spacing:1px;text-align:center;padding:20px;
+          background:rgba(0,0,0,0.75);color:#c9a227;font-size:13px;letter-spacing:1px;text-align:center;padding:20px;z-index:3;
         ">
           <div style="font-size:15px;font-weight:600;">ПЕРЕДАЧА ЗАВЕРШЕНА</div>
           <div style="color:#888;font-size:11px;">Запись доступна только для однократного прослушивания</div>
         </div>
       </div>
 
-      <!-- Controls bar -->
-      <div id="scp-controls" style="
-        padding:12px 16px 14px;
-        display:flex;flex-direction:column;gap:10px;
-        border-top:1px solid rgba(201,162,39,0.3);
-      ">
-        <!-- Progress -->
+      <div style="padding:12px 16px 14px;display:flex;flex-direction:column;gap:10px;border-top:1px solid rgba(201,162,39,0.3);">
         <div style="display:flex;align-items:center;gap:10px;">
           <span id="scp-time-cur" style="color:#888;font-size:11px;min-width:36px;">0:00</span>
-          <div id="scp-progress-wrap" style="
-            flex:1;height:6px;background:#2a2a3e;border-radius:3px;cursor:pointer;position:relative;overflow:hidden;
-          ">
-            <div id="scp-progress-bar" style="
-              height:100%;width:0%;background:linear-gradient(90deg,#c9a227,#e8c547);
-              border-radius:3px;transition:width 0.1s linear;
-            "></div>
+          <div id="scp-progress-wrap" style="flex:1;height:6px;background:#2a2a3e;border-radius:3px;cursor:pointer;overflow:hidden;">
+            <div id="scp-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#c9a227,#e8c547);border-radius:3px;"></div>
           </div>
           <span id="scp-time-dur" style="color:#888;font-size:11px;min-width:36px;text-align:right;">0:00</span>
         </div>
-
-        <!-- Buttons row -->
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
           <div style="display:flex;align-items:center;gap:8px;">
             <button id="scp-play-btn" style="
               width:40px;height:40px;border-radius:50%;
               background:linear-gradient(180deg,#c9a227,#a07d12);
-              border:1px solid #e8c547;color:#1a1a2e;
-              font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+              border:1px solid #e8c547;color:#1a1a2e;font-size:16px;cursor:pointer;
+              display:flex;align-items:center;justify-content:center;
               box-shadow:0 2px 8px rgba(201,162,39,0.35);padding-left:2px;
             ">▶</button>
             <button id="scp-replay-btn" style="
-              display:none;
-              padding:8px 14px;background:transparent;
+              display:none;padding:8px 14px;background:transparent;
               border:1px solid #555;color:#888;font-family:inherit;font-size:11px;
               letter-spacing:1px;cursor:pointer;border-radius:3px;
             ">[ ПРОСЛУШАТЬ СНОВА ]</button>
@@ -1478,8 +1464,6 @@ function playSCPTransmission() {
             letter-spacing:1px;cursor:pointer;border-radius:3px;
           ">[ ЗАКРЫТЬ ПЕРЕДАЧУ ]</button>
         </div>
-
-        <!-- Status / error line -->
         <div id="scp-status" style="color:#666;font-size:10px;letter-spacing:1px;min-height:14px;text-align:center;"></div>
       </div>
     </div>
@@ -1496,7 +1480,10 @@ function playSCPTransmission() {
   const timeCur = overlay.querySelector('#scp-time-cur');
   const timeDur = overlay.querySelector('#scp-time-dur');
   const statusEl = overlay.querySelector('#scp-status');
+  const headerStatus = overlay.querySelector('#scp-header-status');
   const closeBtn = overlay.querySelector('#scp-vid-close');
+  const visCanvas = overlay.querySelector('#scp-vis');
+  const visCtx = visCanvas.getContext('2d');
 
   function fmt(t) {
     if (!isFinite(t) || t < 0) return '0:00';
@@ -1520,35 +1507,157 @@ function playSCPTransmission() {
     replayBtn.style.display = 'inline-block';
     statusEl.textContent = 'Однократная передача · повторное воспроизведение недоступно';
     statusEl.style.color = '#888';
+    headerStatus.textContent = 'ПЕРЕДАЧА ЗАВЕРШЕНА';
+    headerStatus.style.color = '#888';
+    stopVisualizer();
   }
 
-  // Metadata
-  vid.addEventListener('loadedmetadata', () => {
-    timeDur.textContent = fmt(vid.duration);
-  });
+  // ── Incoming alert (Web Audio) ────────────────────────────
+  function ensureAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
 
-  // Progress
+  function playAlertBeep() {
+    try {
+      const ac = ensureAudioCtx();
+      const t = ac.currentTime;
+      [440, 554].forEach((freq, i) => {
+        const o = ac.createOscillator();
+        const g = ac.createGain();
+        o.type = 'square';
+        o.frequency.value = freq;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.07, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+        o.connect(g); g.connect(ac.destination);
+        o.start(t + i * 0.08);
+        o.stop(t + 0.4 + i * 0.08);
+        alertNodes.push(o, g);
+      });
+      const bufSize = ac.sampleRate * 0.15;
+      const buf = ac.createBuffer(1, bufSize, ac.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * 0.4;
+      const noise = ac.createBufferSource();
+      const ng = ac.createGain();
+      noise.buffer = buf;
+      ng.gain.setValueAtTime(0.05, t);
+      ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+      noise.connect(ng); ng.connect(ac.destination);
+      noise.start(t);
+      alertNodes.push(noise, ng);
+    } catch (e) {}
+  }
+
+  function startIncomingAlert() {
+    if (alertStarted || playedOnce || isPlaying) return;
+    alertStarted = true;
+    headerStatus.textContent = 'ВХОДЯЩИЙ СИГНАЛ';
+    headerStatus.style.color = '#c9a227';
+    statusEl.textContent = '⚠ Обнаружен входящий сигнал · нажмите ▶ для приёма передачи';
+    statusEl.style.color = '#c9a227';
+    playAlertBeep();
+    alertInterval = setInterval(() => {
+      if (isPlaying || playedOnce) { stopIncomingAlert(); return; }
+      playAlertBeep();
+    }, 1800);
+  }
+
+  function stopIncomingAlert() {
+    if (alertInterval) { clearInterval(alertInterval); alertInterval = null; }
+    alertNodes.forEach(n => {
+      try { if (n.stop) n.stop(); } catch (e) {}
+      try { n.disconnect(); } catch (e) {}
+    });
+    alertNodes = [];
+  }
+
+  // Delay 6–8 seconds before alert starts
+  const alertDelay = 6000 + Math.random() * 2000;
+  const alertTimer = setTimeout(startIncomingAlert, alertDelay);
+
+  // ── Visualizer ────────────────────────────────────────────
+  function setupVisualizer() {
+    try {
+      const ac = ensureAudioCtx();
+      if (!mediaSource) {
+        mediaSource = ac.createMediaElementSource(vid);
+        analyser = ac.createAnalyser();
+        analyser.fftSize = 128;
+        analyser.smoothingTimeConstant = 0.75;
+        mediaSource.connect(analyser);
+        analyser.connect(ac.destination);
+      }
+    } catch (e) { analyser = null; }
+  }
+
+  function resizeVis() {
+    const rect = visCanvas.parentElement.getBoundingClientRect();
+    visCanvas.width = Math.floor(rect.width);
+    visCanvas.height = 64;
+  }
+
+  function drawVisualizer() {
+    if (!analyser) return;
+    const w = visCanvas.width, h = visCanvas.height;
+    const bufLen = analyser.frequencyBinCount;
+    const data = new Uint8Array(bufLen);
+    analyser.getByteFrequencyData(data);
+    visCtx.clearRect(0, 0, w, h);
+    const grad = visCtx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, 'rgba(10,10,20,0.6)');
+    visCtx.fillStyle = grad;
+    visCtx.fillRect(0, 0, w, h);
+    const barCount = 48;
+    const step = Math.floor(bufLen / barCount);
+    const barW = w / barCount;
+    for (let i = 0; i < barCount; i++) {
+      let sum = 0;
+      for (let j = 0; j < step; j++) sum += data[i * step + j];
+      const avg = sum / step;
+      const barH = (avg / 255) * h * 0.95;
+      const hue = 42 + (avg / 255) * 20;
+      visCtx.fillStyle = 'hsla(' + hue + ',80%,' + (45 + avg / 8) + '%,0.9)';
+      visCtx.fillRect(i * barW + 1, h - barH, barW - 2, barH);
+    }
+    visAnimId = requestAnimationFrame(drawVisualizer);
+  }
+
+  function startVisualizer() {
+    resizeVis();
+    setupVisualizer();
+    if (analyser && !visAnimId) drawVisualizer();
+  }
+
+  function stopVisualizer() {
+    if (visAnimId) { cancelAnimationFrame(visAnimId); visAnimId = null; }
+    if (visCtx) visCtx.clearRect(0, 0, visCanvas.width, visCanvas.height);
+  }
+
+  // ── Media events ──────────────────────────────────────────
+  vid.addEventListener('loadedmetadata', () => { timeDur.textContent = fmt(vid.duration); });
   vid.addEventListener('timeupdate', () => {
     timeCur.textContent = fmt(vid.currentTime);
-    if (vid.duration) {
-      progressBar.style.width = (vid.currentTime / vid.duration * 100) + '%';
-    }
+    if (vid.duration) progressBar.style.width = (vid.currentTime / vid.duration * 100) + '%';
   });
+  vid.addEventListener('ended', () => { setPlayingUI(false); lockAfterPlay(); });
 
-  // Ended
-  vid.addEventListener('ended', () => {
-    setPlayingUI(false);
-    lockAfterPlay();
-  });
-
-  // Play / Pause
   function togglePlay() {
     if (playedOnce) return;
     if (vid.paused) {
+      clearTimeout(alertTimer);
+      stopIncomingAlert();
+      setupVisualizer();
       vid.play().then(() => {
         setPlayingUI(true);
+        startVisualizer();
         statusEl.textContent = '▶ ВОСПРОИЗВЕДЕНИЕ КЛАССИФИЦИРОВАННОЙ ПЕРЕДАЧИ';
         statusEl.style.color = '#c9a227';
+        headerStatus.textContent = 'ПРИЁМ';
+        headerStatus.style.color = '#7fba00';
       }).catch(() => {
         statusEl.textContent = 'Ошибка запуска · нажмите ещё раз';
         statusEl.style.color = '#c44';
@@ -1556,15 +1665,17 @@ function playSCPTransmission() {
     } else {
       vid.pause();
       setPlayingUI(false);
+      stopVisualizer();
       statusEl.textContent = '❚❚ ПАУЗА';
       statusEl.style.color = '#888';
+      headerStatus.textContent = 'ПАУЗА';
+      headerStatus.style.color = '#888';
     }
   }
 
   playBtn.addEventListener('click', togglePlay);
   bigPlay.addEventListener('click', togglePlay);
 
-  // Click on progress (only before finished)
   progressWrap.addEventListener('click', (e) => {
     if (playedOnce || !vid.duration) return;
     const rect = progressWrap.getBoundingClientRect();
@@ -1572,25 +1683,25 @@ function playSCPTransmission() {
     vid.currentTime = ratio * vid.duration;
   });
 
-  // Replay → error
   replayBtn.addEventListener('click', () => {
     statusEl.textContent = '⚠ Нестабильное соединение. Невозможно загрузить запись. Попробуйте позднее.';
     statusEl.style.color = '#c44';
-    // brief glitch effect
     statusEl.style.opacity = '0.4';
     setTimeout(() => { statusEl.style.opacity = '1'; }, 120);
     setTimeout(() => { statusEl.style.opacity = '0.5'; }, 240);
     setTimeout(() => { statusEl.style.opacity = '1'; }, 360);
   });
 
-  // Close
   closeBtn.addEventListener('click', () => {
+    clearTimeout(alertTimer);
+    stopIncomingAlert();
+    stopVisualizer();
     vid.pause();
     overlay.remove();
   });
 
-  // Initial status
   statusEl.textContent = 'Нажмите ▶ чтобы начать прослушивание передачи';
+  headerStatus.textContent = 'ОЖИДАНИЕ СИГНАЛА';
 }
 
 // ============================================================
