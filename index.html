@@ -1363,7 +1363,7 @@ document.getElementById('mail-view-back').addEventListener('click', () => {
   mailListView.style.display = 'block';
 });
 
-// Form link → open form + abruptly play SCP audio/video
+// Form link → open form + show SCP transmission player
 document.getElementById('form-link').addEventListener('click', function(e) {
   e.preventDefault();
   const url = 'https://docs.google.com/forms/d/e/1FAIpQLSfNfx0bR5BuXyMM5GBb-NgMdGraOp7Yx9mO0s3QGp_hbYrbgA/viewform?usp=dialog';
@@ -1372,66 +1372,225 @@ document.getElementById('form-link').addEventListener('click', function(e) {
 });
 
 function playSCPTransmission() {
-  // Full-screen black overlay with the classified visualizer video
   let overlay = document.getElementById('scp-video-overlay');
   if (overlay) overlay.remove();
 
+  let playedOnce = false;
+  let isPlaying = false;
+
   overlay = document.createElement('div');
   overlay.id = 'scp-video-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:#000;z-index:100000;display:flex;align-items:center;justify-content:center;flex-direction:column;';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:100000;display:flex;align-items:center;justify-content:center;flex-direction:column;font-family:"Share Tech Mono",monospace;';
 
-  // Start muted so browsers allow autoplay, then unmute
   overlay.innerHTML = `
-    <video id="scp-vid"
-           src="anons_scp_visualizer.mp4"
-           autoplay
-           playsinline
-           muted
-           style="max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain;background:#000;">
-    </video>
-    <button id="scp-vid-close" style="position:absolute;top:12px;right:16px;background:#1a1a2e;color:#c9a227;border:1px solid #c9a227;padding:6px 14px;font-family:'Share Tech Mono',monospace;font-size:12px;cursor:pointer;letter-spacing:1px;z-index:2;">[ ЗАКРЫТЬ ПЕРЕДАЧУ ]</button>
-    <div style="position:absolute;bottom:16px;left:0;right:0;text-align:center;color:#444;font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:2px;">SCP // CLASSIFIED SIGNAL · DO NOT DISTRIBUTE</div>
+    <div id="scp-player-box" style="
+      width:min(640px,92vw);
+      background:linear-gradient(180deg,#0f0f1a 0%,#1a1a2e 100%);
+      border:1px solid #c9a227;
+      border-radius:6px;
+      box-shadow:0 0 40px rgba(201,162,39,0.25), inset 0 0 0 1px rgba(201,162,39,0.15);
+      overflow:hidden;
+      position:relative;
+    ">
+      <!-- Header -->
+      <div style="
+        background:linear-gradient(180deg,#1a1a2e,#0f0f1a);
+        border-bottom:1px solid #c9a227;
+        padding:10px 16px;
+        display:flex;align-items:center;justify-content:space-between;
+      ">
+        <div style="color:#c9a227;font-size:12px;letter-spacing:2px;font-weight:600;">
+          ⬛ SCP // CLASSIFIED TRANSMISSION
+        </div>
+        <div style="color:#666;font-size:10px;letter-spacing:1px;">SITE-04 · O4</div>
+      </div>
+
+      <!-- Video area -->
+      <div style="position:relative;background:#000;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;">
+        <video id="scp-vid"
+               src="anons_scp_visualizer.mp4"
+               playsinline
+               style="width:100%;height:100%;object-fit:contain;background:#000;display:block;">
+        </video>
+        <!-- Big play overlay (shown before first play) -->
+        <div id="scp-big-play" style="
+          position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+          background:rgba(0,0,0,0.45);cursor:pointer;transition:background 0.2s;
+        ">
+          <div style="
+            width:72px;height:72px;border-radius:50%;
+            background:rgba(201,162,39,0.9);border:2px solid #e8c547;
+            display:flex;align-items:center;justify-content:center;
+            box-shadow:0 0 24px rgba(201,162,39,0.5);
+            font-size:28px;color:#1a1a2e;padding-left:4px;
+          ">▶</div>
+        </div>
+        <!-- Ended overlay -->
+        <div id="scp-ended-overlay" style="
+          position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;
+          background:rgba(0,0,0,0.75);color:#c9a227;font-size:13px;letter-spacing:1px;text-align:center;padding:20px;
+        ">
+          <div style="font-size:15px;font-weight:600;">ПЕРЕДАЧА ЗАВЕРШЕНА</div>
+          <div style="color:#888;font-size:11px;">Запись доступна только для однократного прослушивания</div>
+        </div>
+      </div>
+
+      <!-- Controls bar -->
+      <div id="scp-controls" style="
+        padding:12px 16px 14px;
+        display:flex;flex-direction:column;gap:10px;
+        border-top:1px solid rgba(201,162,39,0.3);
+      ">
+        <!-- Progress -->
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span id="scp-time-cur" style="color:#888;font-size:11px;min-width:36px;">0:00</span>
+          <div id="scp-progress-wrap" style="
+            flex:1;height:6px;background:#2a2a3e;border-radius:3px;cursor:pointer;position:relative;overflow:hidden;
+          ">
+            <div id="scp-progress-bar" style="
+              height:100%;width:0%;background:linear-gradient(90deg,#c9a227,#e8c547);
+              border-radius:3px;transition:width 0.1s linear;
+            "></div>
+          </div>
+          <span id="scp-time-dur" style="color:#888;font-size:11px;min-width:36px;text-align:right;">0:00</span>
+        </div>
+
+        <!-- Buttons row -->
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button id="scp-play-btn" style="
+              width:40px;height:40px;border-radius:50%;
+              background:linear-gradient(180deg,#c9a227,#a07d12);
+              border:1px solid #e8c547;color:#1a1a2e;
+              font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+              box-shadow:0 2px 8px rgba(201,162,39,0.35);padding-left:2px;
+            ">▶</button>
+            <button id="scp-replay-btn" style="
+              display:none;
+              padding:8px 14px;background:transparent;
+              border:1px solid #555;color:#888;font-family:inherit;font-size:11px;
+              letter-spacing:1px;cursor:pointer;border-radius:3px;
+            ">[ ПРОСЛУШАТЬ СНОВА ]</button>
+          </div>
+          <button id="scp-vid-close" style="
+            padding:8px 16px;background:#1a1a2e;color:#c9a227;
+            border:1px solid #c9a227;font-family:inherit;font-size:11px;
+            letter-spacing:1px;cursor:pointer;border-radius:3px;
+          ">[ ЗАКРЫТЬ ПЕРЕДАЧУ ]</button>
+        </div>
+
+        <!-- Status / error line -->
+        <div id="scp-status" style="color:#666;font-size:10px;letter-spacing:1px;min-height:14px;text-align:center;"></div>
+      </div>
+    </div>
   `;
   document.body.appendChild(overlay);
 
   const vid = overlay.querySelector('#scp-vid');
-  vid.volume = 1;
+  const playBtn = overlay.querySelector('#scp-play-btn');
+  const bigPlay = overlay.querySelector('#scp-big-play');
+  const endedOverlay = overlay.querySelector('#scp-ended-overlay');
+  const replayBtn = overlay.querySelector('#scp-replay-btn');
+  const progressBar = overlay.querySelector('#scp-progress-bar');
+  const progressWrap = overlay.querySelector('#scp-progress-wrap');
+  const timeCur = overlay.querySelector('#scp-time-cur');
+  const timeDur = overlay.querySelector('#scp-time-dur');
+  const statusEl = overlay.querySelector('#scp-status');
+  const closeBtn = overlay.querySelector('#scp-vid-close');
 
-  // Play muted first (always allowed), then unmute after it starts
-  const tryPlay = () => {
-    vid.muted = true;
-    const p = vid.play();
-    if (p && typeof p.then === 'function') {
-      p.then(() => {
-        // Unmute after a short delay so the gesture / autoplay succeeds
-        setTimeout(() => {
-          vid.muted = false;
-          vid.volume = 1;
-        }, 250);
-      }).catch(() => {
-        // Last resort: show controls so user can start manually
-        vid.controls = true;
-        vid.muted = false;
-      });
-    }
-  };
-
-  // If metadata already loaded
-  if (vid.readyState >= 2) {
-    tryPlay();
-  } else {
-    vid.addEventListener('loadeddata', tryPlay, { once: true });
-    // Fallback timeout in case loadeddata never fires
-    setTimeout(tryPlay, 800);
+  function fmt(t) {
+    if (!isFinite(t) || t < 0) return '0:00';
+    const m = Math.floor(t / 60);
+    const s = Math.floor(t % 60);
+    return m + ':' + String(s).padStart(2, '0');
   }
 
-  overlay.querySelector('#scp-vid-close').onclick = () => {
+  function setPlayingUI(playing) {
+    isPlaying = playing;
+    playBtn.textContent = playing ? '❚❚' : '▶';
+    playBtn.style.paddingLeft = playing ? '0' : '2px';
+    if (playing) bigPlay.style.display = 'none';
+  }
+
+  function lockAfterPlay() {
+    playedOnce = true;
+    playBtn.style.display = 'none';
+    bigPlay.style.display = 'none';
+    endedOverlay.style.display = 'flex';
+    replayBtn.style.display = 'inline-block';
+    statusEl.textContent = 'Однократная передача · повторное воспроизведение недоступно';
+    statusEl.style.color = '#888';
+  }
+
+  // Metadata
+  vid.addEventListener('loadedmetadata', () => {
+    timeDur.textContent = fmt(vid.duration);
+  });
+
+  // Progress
+  vid.addEventListener('timeupdate', () => {
+    timeCur.textContent = fmt(vid.currentTime);
+    if (vid.duration) {
+      progressBar.style.width = (vid.currentTime / vid.duration * 100) + '%';
+    }
+  });
+
+  // Ended
+  vid.addEventListener('ended', () => {
+    setPlayingUI(false);
+    lockAfterPlay();
+  });
+
+  // Play / Pause
+  function togglePlay() {
+    if (playedOnce) return;
+    if (vid.paused) {
+      vid.play().then(() => {
+        setPlayingUI(true);
+        statusEl.textContent = '▶ ВОСПРОИЗВЕДЕНИЕ КЛАССИФИЦИРОВАННОЙ ПЕРЕДАЧИ';
+        statusEl.style.color = '#c9a227';
+      }).catch(() => {
+        statusEl.textContent = 'Ошибка запуска · нажмите ещё раз';
+        statusEl.style.color = '#c44';
+      });
+    } else {
+      vid.pause();
+      setPlayingUI(false);
+      statusEl.textContent = '❚❚ ПАУЗА';
+      statusEl.style.color = '#888';
+    }
+  }
+
+  playBtn.addEventListener('click', togglePlay);
+  bigPlay.addEventListener('click', togglePlay);
+
+  // Click on progress (only before finished)
+  progressWrap.addEventListener('click', (e) => {
+    if (playedOnce || !vid.duration) return;
+    const rect = progressWrap.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    vid.currentTime = ratio * vid.duration;
+  });
+
+  // Replay → error
+  replayBtn.addEventListener('click', () => {
+    statusEl.textContent = '⚠ Нестабильное соединение. Невозможно загрузить запись. Попробуйте позднее.';
+    statusEl.style.color = '#c44';
+    // brief glitch effect
+    statusEl.style.opacity = '0.4';
+    setTimeout(() => { statusEl.style.opacity = '1'; }, 120);
+    setTimeout(() => { statusEl.style.opacity = '0.5'; }, 240);
+    setTimeout(() => { statusEl.style.opacity = '1'; }, 360);
+  });
+
+  // Close
+  closeBtn.addEventListener('click', () => {
     vid.pause();
     overlay.remove();
-  };
-  vid.addEventListener('ended', () => {
-    overlay.remove();
   });
+
+  // Initial status
+  statusEl.textContent = 'Нажмите ▶ чтобы начать прослушивание передачи';
 }
 
 // ============================================================
