@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Windows XP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   GLOBAL — gritty fonts
+   ============================================================ */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html, body {
+  width:100vw; height:100vh; overflow:hidden;
+  background:#000;
+  font-family:'Tahoma','Arial',sans-serif;
+  cursor:default; user-select:none;
+}
+.gritty { font-family:'Special Elite', 'Courier New', monospace; }
+.mono { font-family:'Share Tech Mono', 'Consolas', monospace; }
+
+/* ============================================================
+   CRT
+   ============================================================ */
+#crt { position:fixed; inset:0; pointer-events:none; z-index:99999; }
+#crt::before {
+  content:''; position:absolute; inset:0;
+  background: radial-gradient(ellipse 120% 110% at 50% 50%,
+    transparent 50%, rgba(0,0,0,0.22) 72%, rgba(0,0,0,0.55) 88%, rgba(0,0,0,0.88) 100%);
+}
+#crt::after {
+  content:''; position:absolute; inset:0;
+  background: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0,0,0,0.13) 2px, rgba(0,0,0,0.13) 3px);
+  mix-blend-mode: multiply;
+}
+#crt-pixel {
+  position:fixed; inset:0; pointer-events:none; z-index:99998;
+  background-image: linear-gradient(rgba(0,0,0,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.06) 1px, transparent 1px);
+  background-size: 3px 3px;
+}
+#crt-mask {
+  position:fixed; inset:0; pointer-events:none; z-index:99997;
+  border-radius:22px;
+  box-shadow: 0 0 0 14px #000, inset 0 0 60px 8px rgba(0,0,0,0.45);
+}
+#crt-corners {
+  position:fixed; inset:0; pointer-events:none; z-index:99996;
+  background: radial-gradient(ellipse 108% 108% at 50% 50%, transparent 88%, #000 89%);
+}
+#crt-tint {
+  position:fixed; inset:0; pointer-events:none; z-index:99995;
+  background: rgba(0,20,0,0.04);
+}
+@keyframes flicker {
+  0%,100%{opacity:1} 92%{opacity:1} 93%{opacity:0.97} 94%{opacity:1} 97%{opacity:0.98} 98%{opacity:1}
+}
+#crt { animation: flicker 8s infinite; }
+
+/* ============================================================
+   SPLASH
+   ============================================================ */
+#splash-screen {
+  position:fixed; inset:0; background:#000;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  z-index:2000;
+}
+.splash-win-logo {
+  display:grid; grid-template-columns:1fr 1fr; gap:5px;
+  width:88px; height:88px; margin-bottom:22px;
+  position:relative;
+}
+.swl { border-radius:3px; transition: opacity 0.35s ease, transform 0.35s ease; }
+.swl-r{background:#f25022;} .swl-g{background:#7fba00;}
+.swl-b{background:#00a4ef;} .swl-y{background:#ffb900;}
+
+/* clockwise cycle animation for cubes */
+@keyframes cubeCycle {
+  0%   { opacity:1; transform:scale(1); }
+  20%  { opacity:1; transform:scale(1.05); }
+  25%  { opacity:0.3; transform:scale(0.92); }
+  100% { opacity:0.3; transform:scale(0.92); }
+}
+.splash-win-logo.animating .swl-r { animation: cubeCycle 2.4s ease-in-out infinite; animation-delay: 0s; }
+.splash-win-logo.animating .swl-g { animation: cubeCycle 2.4s ease-in-out infinite; animation-delay: 0.6s; }
+.splash-win-logo.animating .swl-y { animation: cubeCycle 2.4s ease-in-out infinite; animation-delay: 1.2s; }
+.splash-win-logo.animating .swl-b { animation: cubeCycle 2.4s ease-in-out infinite; animation-delay: 1.8s; }
+
+.splash-title {
+  color:#e8e0d0; font-size:32px; font-weight:400; letter-spacing:5px;
+  font-family:'Special Elite', monospace; margin-bottom:6px;
+  text-shadow: 0 0 8px rgba(255,255,255,0.15), 1px 1px 0 #000;
+}
+.splash-subtitle {
+  color:#777; font-size:13px; letter-spacing:3px; margin-bottom:48px;
+  font-family:'Share Tech Mono', monospace;
+}
+#splash-btn {
+  padding:11px 40px;
+  background:linear-gradient(180deg,#3a6ea5 0%,#2a5080 45%,#1e3a5c 100%);
+  border:1px solid #5a8ec0;
+  border-radius:3px;
+  color:#e8f0ff; font-size:15px; font-family:'Special Elite', monospace; font-weight:400;
+  cursor:pointer; letter-spacing:1.5px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.2);
+  transition:filter 0.15s, box-shadow 0.15s;
+}
+#splash-btn:hover {
+  filter:brightness(1.18);
+  box-shadow: 0 2px 14px rgba(60,120,200,0.4), inset 0 1px 0 rgba(255,255,255,0.25);
+}
+#splash-btn:active { filter:brightness(0.9); }
+.splash-hint {
+  color:#444; font-size:11px; margin-top:16px;
+  font-family:'Share Tech Mono', monospace; letter-spacing:1px;
+}
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+#boot-screen {
+  position:fixed; inset:0; background:#000;
+  display:none; flex-direction:column; align-items:center; justify-content:center;
+  z-index:1000;
+}
+#boot-logo { display:flex; flex-direction:column; align-items:center; gap:16px; }
+.boot-flag {
+  display:grid; grid-template-columns:1fr 1fr; gap:4px; width:80px; height:80px;
+}
+.bfq { border-radius:2px; transition: opacity 0.3s, transform 0.3s; }
+.bfq-r{background:#f25022;} .bfq-g{background:#7fba00;}
+.bfq-b{background:#00a4ef;} .bfq-y{background:#ffb900;}
+.boot-flag.animating .bfq-r { animation: cubeCycle 2s ease-in-out infinite; animation-delay: 0s; }
+.boot-flag.animating .bfq-g { animation: cubeCycle 2s ease-in-out infinite; animation-delay: 0.5s; }
+.boot-flag.animating .bfq-y { animation: cubeCycle 2s ease-in-out infinite; animation-delay: 1.0s; }
+.boot-flag.animating .bfq-b { animation: cubeCycle 2s ease-in-out infinite; animation-delay: 1.5s; }
+
+#boot-logo h1 {
+  color:#e8e0d0; font-size:26px; font-weight:400; letter-spacing:4px;
+  font-family:'Special Elite', monospace;
+}
+#boot-logo .edition {
+  color:#888; font-size:12px; font-family:'Share Tech Mono', monospace;
+  letter-spacing:2px; margin-top:-8px;
+}
+.boot-bar-wrap {
+  margin-top:56px; width:220px; height:6px; background:#1a1a1a;
+  border-radius:3px; overflow:hidden; border:1px solid #333;
+}
+#boot-real-bar {
+  height:100%; width:0%;
+  background:linear-gradient(90deg,#3a6ea5,#5a9ed5);
+  border-radius:3px; transition:width 0.15s linear;
+}
+#boot-msg {
+  color:#666; font-size:12px; margin-top:18px;
+  font-family:'Share Tech Mono', monospace; min-height:18px; letter-spacing:1px;
+}
+
+/* ============================================================
+   DESKTOP
+   ============================================================ */
+#desktop {
+  position:fixed; inset:0; display:none;
+  background:
+    radial-gradient(ellipse 80% 60% at 30% 40%, #2a6ea6 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 70% 60%, #1a4f7a 0%, transparent 60%),
+    linear-gradient(160deg, #1e5c96 0%, #0d3d6b 40%, #0a2e52 100%);
+}
+#wp-hills { position:absolute; inset:0; width:100%; height:100%; opacity:0.7; }
+
+/* TASKBAR */
+#taskbar {
+  position:absolute; bottom:0; left:0; right:0; height:40px;
+  background:linear-gradient(180deg, #245cce 0%, #1e52c4 4%, #1a4db8 20%, #1648ab 50%, #1343a0 80%, #102e8a 100%);
+  border-top:1px solid #3a7ad4;
+  display:flex; align-items:center; z-index:10;
+  box-shadow: 0 -1px 0 #0a2060;
+}
+#start-btn {
+  height:34px; padding:0 14px 0 8px;
+  background:linear-gradient(180deg, #629c44 0%,#4e8a2f 10%, #3e7321 50%, #316018 80%, #276010 100%);
+  border-radius:0 14px 14px 0;
+  border:none; border-top:1px solid #74b84a; border-right:1px solid #274a10;
+  color:#fff; font-weight:bold; font-size:14px; font-family:'Tahoma';
+  cursor:pointer; display:flex; align-items:center; gap:6px;
+  margin-left:2px;
+  box-shadow: 1px 0 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.35);
+  letter-spacing:0.3px; text-shadow:1px 1px 1px rgba(0,0,0,0.5);
+}
+#start-btn:hover { filter:brightness(1.1); }
+.sbl { display:grid; grid-template-columns:1fr 1fr; gap:2px; width:18px; height:18px; flex-shrink:0; }
+.sbl div { border-radius:1px; }
+.sbl-r{background:#f25022;} .sbl-g{background:#7fba00;} .sbl-b{background:#00a4ef;} .sbl-y{background:#ffb900;}
+
+.ql-area { display:flex; align-items:center; margin-left:8px; gap:2px; padding:0 4px; border-right:1px solid rgba(255,255,255,0.15); }
+.ql-icon { width:26px; height:26px; cursor:pointer; opacity:0.9; display:flex; align-items:center; justify-content:center; border-radius:2px; font-size:15px; }
+.ql-icon:hover { opacity:1; background:rgba(255,255,255,0.15); }
+
+#tray {
+  margin-left:auto; display:flex; align-items:center; gap:0; height:100%;
+  background:linear-gradient(180deg,#1648ab,#0d3a96);
+  border-left:1px solid rgba(255,255,255,0.12); padding:0 8px;
+}
+#clock { color:#fff; font-size:11px; font-family:'Tahoma'; line-height:1.3; text-align:center; text-shadow:0 1px 2px rgba(0,0,0,0.7); }
+.tray-icon { font-size:14px; margin-right:6px; cursor:default; opacity:0.8; }
+
+/* DESKTOP ICONS */
+.di {
+  position:absolute; width:78px;
+  display:flex; flex-direction:column; align-items:center; gap:3px;
+  padding:5px 4px; cursor:pointer; border-radius:3px;
+}
+.di:hover { background:rgba(255,255,255,0.18); }
+.di:active { background:rgba(255,255,255,0.25); }
+.di.selected { background:rgba(49,106,197,0.5); outline:1px dotted rgba(255,255,255,0.7); }
+.di-icon { width:48px; height:48px; display:flex; align-items:center; justify-content:center; font-size:34px; filter:drop-shadow(1px 2px 2px rgba(0,0,0,0.5)); }
+.di-label {
+  color:#fff; font-size:11px; text-align:center; line-height:1.2;
+  text-shadow:1px 1px 3px #000,0 0 6px #000;
+  word-break:break-word; font-family:'Tahoma';
+}
+
+/* START MENU */
+#start-menu {
+  display:none; position:absolute; bottom:40px; left:0; width:280px;
+  background:#d4d0c8; border:2px solid #8a8a8a;
+  box-shadow:3px 3px 12px rgba(0,0,0,0.5), inset 1px 1px 0 #fff;
+  z-index:50; font-family:'Tahoma'; font-size:11px;
+}
+#start-menu.open { display:block; }
+.sm-header {
+  height:54px; background:linear-gradient(180deg,#0a246a 0%,#2a6cdc 50%,#1254b4 100%);
+  display:flex; align-items:center; gap:10px; padding:0 12px;
+  color:#fff; font-weight:bold; font-size:14px;
+}
+.sm-avatar {
+  width:40px; height:40px; border-radius:3px; background:#3a7ad4;
+  display:flex; align-items:center; justify-content:center; font-size:22px;
+  border:1px solid #fff;
+}
+.sm-item { padding:8px 14px; display:flex; align-items:center; gap:10px; cursor:pointer; }
+.sm-item:hover { background:#316ac5; color:#fff; }
+.sm-item .ico { font-size:18px; width:24px; text-align:center; }
+.sm-sep { height:1px; background:#999; margin:2px 8px; }
+.sm-footer { border-top:1px solid #999; padding:6px 10px; display:flex; justify-content:flex-end; gap:8px; }
+.sm-btn {
+  padding:4px 12px; background:linear-gradient(180deg,#f5f5f5,#d4d0c8);
+  border:1px solid #888; border-top-color:#fff; border-left-color:#fff;
+  font-family:'Tahoma'; font-size:11px; cursor:pointer;
+}
+.sm-btn:hover { background:linear-gradient(180deg,#ddeeff,#b8d4f0); }
+
+/* ============================================================
+   NOTIFICATIONS (toast)
+   ============================================================ */
+#toast-container {
+  position:fixed; bottom:50px; right:16px; z-index:9000;
+  display:flex; flex-direction:column; gap:10px; pointer-events:none;
+}
+.toast {
+  background:linear-gradient(180deg,#f8f4e8,#e8e0c8);
+  border:2px solid #8a8a8a;
+  box-shadow:3px 3px 12px rgba(0,0,0,0.45), inset 1px 1px 0 #fff;
+  min-width:280px; max-width:340px;
+  font-family:'Tahoma'; font-size:11px;
+  pointer-events:auto;
+  animation: toastIn 0.35s ease-out;
+  cursor:pointer;
+}
+.toast.hide { animation: toastOut 0.3s ease-in forwards; }
+@keyframes toastIn { from{transform:translateX(120%);opacity:0;} to{transform:translateX(0);opacity:1;} }
+@keyframes toastOut { from{transform:translateX(0);opacity:1;} to{transform:translateX(120%);opacity:0;} }
+.toast-tb {
+  height:22px; background:linear-gradient(180deg,#0a246a 0%,#3a7cdc 40%,#0a246a 100%);
+  display:flex; align-items:center; justify-content:space-between; padding:0 6px 0 8px;
+  color:#fff; font-weight:bold; font-size:11px;
+}
+.toast-close {
+  width:16px; height:14px; background:linear-gradient(180deg,#e8e8e8,#d4d0c8);
+  border:1px solid #888; border-top-color:#fff; border-left-color:#fff;
+  box-shadow:inset -1px -1px 0 #333; color:#000; font-size:9px; font-weight:bold;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
+.toast-close:hover { background:#c44; color:#fff; }
+.toast-body { padding:12px 14px; display:flex; gap:10px; align-items:flex-start; color:#000; line-height:1.45; }
+.toast-ico { font-size:22px; flex-shrink:0; }
+
+/* ============================================================
+   APP WINDOWS (Snake, Tetris, Calc)
+   ============================================================ */
+.win {
+  position:absolute; background:#d4d0c8;
+  border:2px solid #8a8a8a;
+  box-shadow:3px 3px 10px rgba(0,0,0,0.5), inset 1px 1px 0 #fff;
+  display:flex; flex-direction:column;
+  font-family:'Tahoma'; font-size:11px;
+  animation:winPop 0.12s ease-out;
+  z-index:100;
+}
+@keyframes winPop { from{transform:scale(0.85);opacity:0;} to{transform:scale(1);opacity:1;} }
+.win-tb {
+  height:24px; flex-shrink:0;
+  background:linear-gradient(180deg,#0a246a 0%,#2a6cdc 50%,#1254b4 100%);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 4px 0 8px; cursor:move;
+}
+.win-tb-left { display:flex; align-items:center; gap:6px; }
+.win-tb-title { color:#fff; font-size:11px; font-weight:bold; text-shadow:1px 1px 1px rgba(0,0,0,0.5); }
+.win-tb-btns { display:flex; gap:2px; }
+.win-tb-btn {
+  width:18px; height:16px; border:1px solid;
+  border-top-color:#fff; border-left-color:#fff;
+  background:linear-gradient(180deg,#e8e8e8,#d0d0d0);
+  box-shadow:inset -1px -1px 0 #555;
+  font-size:9px; font-weight:bold; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; color:#000;
+}
+.win-tb-btn:hover { background:#c00; color:#fff; border-color:#c00; }
+.win-body { flex:1; overflow:hidden; background:#000; position:relative; }
+
+/* Calculator specific */
+.calc-body { background:#d4d0c8 !important; padding:10px; display:flex; flex-direction:column; gap:8px; }
+.calc-display {
+  background:#e8f0d8; border:2px inset #888; height:36px;
+  text-align:right; padding:4px 8px; font-size:20px; font-family:'Share Tech Mono', monospace;
+  color:#000; overflow:hidden;
+}
+.calc-keys { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; }
+.calc-key {
+  height:32px; background:linear-gradient(180deg,#f5f5f5,#d4d0c8);
+  border:2px solid #aaa; border-top-color:#fff; border-left-color:#fff;
+  box-shadow:1px 1px 0 #555; font-family:'Tahoma'; font-size:13px; font-weight:bold;
+  cursor:pointer;
+}
+.calc-key:hover { background:linear-gradient(180deg,#ddeeff,#b8d4f0); }
+.calc-key:active { border-top-color:#888; border-left-color:#888; border-bottom-color:#fff; border-right-color:#fff; }
+.calc-key.op { background:linear-gradient(180deg,#e8e0c0,#d0c8a0); }
+.calc-key.eq { background:linear-gradient(180deg,#c0d8f0,#a0c0e0); }
+
+/* Game canvas area */
+.game-info {
+  position:absolute; top:4px; left:8px; color:#0f0; font-family:'Share Tech Mono', monospace;
+  font-size:12px; z-index:2; text-shadow:0 0 4px #0f0;
+}
+.game-overlay {
+  position:absolute; inset:0; background:rgba(0,0,0,0.75);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  color:#0f0; font-family:'Share Tech Mono', monospace; z-index:5; gap:12px;
+}
+.game-overlay button {
+  padding:8px 20px; background:#0a3; color:#fff; border:none; border-radius:3px;
+  font-family:'Share Tech Mono', monospace; font-size:13px; cursor:pointer;
+}
+.game-overlay button:hover { background:#0c5; }
+
+/* ============================================================
+   MAIL / GMAIL-LIKE
+   ============================================================ */
+#mail-screen {
+  position:fixed; inset:0; background:#f6f8fc; display:none;
+  flex-direction:column; z-index:600; overflow:hidden;
+  font-family:'Roboto', 'Segoe UI', Arial, sans-serif;
+}
+#mail-screen.active { display:flex; }
+
+.mail-browser-bar {
+  background:linear-gradient(180deg,#ece9d8,#d4d0c8);
+  border-bottom:2px solid #888;
+  padding:4px 6px; display:flex; align-items:center; gap:4px;
+  font-family:'Tahoma'; font-size:11px;
+}
+.mail-browser-navbtn {
+  height:22px; padding:0 8px;
+  background:linear-gradient(180deg,#f5f5f5,#d4d0c8);
+  border:1px solid #888; border-top-color:#fff; border-left-color:#fff;
+  box-shadow:inset -1px -1px 0 #333;
+  font-family:'Tahoma'; font-size:11px; cursor:pointer;
+  display:flex; align-items:center; gap:3px;
+}
+.mail-browser-navbtn:hover { background:linear-gradient(180deg,#ddeeff,#b8d4f0); }
+.mail-addr {
+  flex:1; height:20px; border:2px inset #888;
+  background:#fff; padding:0 6px;
+  font-family:'Tahoma'; font-size:11px; color:#00008b;
+  display:flex; align-items:center;
+}
+
+.mail-chrome { background:#fff; border-bottom:1px solid #dadce0; flex-shrink:0; z-index:20; }
+.mail-topbar { display:flex; align-items:center; gap:12px; padding:8px 16px; height:56px; }
+.mail-logo { display:flex; align-items:center; gap:6px; font-size:22px; color:#5f6368; font-weight:400; }
+.mail-logo span { color:#ea4335; font-weight:500; }
+.mail-search {
+  flex:1; max-width:720px; height:42px; background:#eaf1fb; border-radius:24px;
+  display:flex; align-items:center; padding:0 16px; gap:12px; color:#5f6368; font-size:14px;
+}
+.mail-user {
+  width:32px; height:32px; border-radius:50%; background:#1a73e8; color:#fff;
+  display:flex; align-items:center; justify-content:center; font-weight:500; font-size:14px;
+}
+.mail-body { display:flex; flex:1; overflow:hidden; }
+.mail-sidebar { width:220px; padding:12px 8px; flex-shrink:0; background:#fff; }
+.mail-compose {
+  background:#c2e7ff; color:#001d35; border:none; border-radius:16px;
+  padding:12px 20px; font-size:14px; font-weight:500; cursor:pointer;
+  display:flex; align-items:center; gap:10px; margin-bottom:12px; width:100%;
+  box-shadow:0 1px 2px rgba(0,0,0,0.1);
+}
+.mail-compose:hover { background:#a8d4f5; }
+.mail-nav-item {
+  padding:8px 16px; border-radius:0 16px 16px 0; font-size:14px; color:#202124;
+  display:flex; align-items:center; gap:14px; cursor:pointer; margin-right:8px;
+}
+.mail-nav-item.active { background:#d3e3fd; font-weight:500; color:#001d35; }
+.mail-nav-item:hover:not(.active) { background:#f1f3f4; }
+.mail-badge {
+  margin-left:auto; background:#1a73e8; color:#fff; font-size:11px;
+  padding:1px 7px; border-radius:10px; font-weight:500;
+}
+.mail-list { flex:1; overflow-y:auto; background:#fff; border-left:1px solid #dadce0; }
+.mail-list-header { padding:10px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid #eee; color:#5f6368; font-size:13px; }
+.mail-row {
+  display:flex; align-items:center; gap:12px; padding:10px 16px;
+  border-bottom:1px solid #f1f3f4; cursor:pointer; font-size:14px; transition:background 0.1s;
+}
+.mail-row:hover { background:#f2f6fc; box-shadow:inset 1px 0 0 #dadce0; }
+.mail-row.unread { font-weight:600; }
+.mail-avatar {
+  width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-size:14px; color:#fff; flex-shrink:0;
+}
+.mail-from { width:180px; color:#202124; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mail-subj { flex:1; color:#5f6368; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mail-date { color:#5f6368; font-size:12px; width:70px; text-align:right; }
+.mail-row.unread .mail-date { color:#1a73e8; font-weight:600; }
+
+#mail-view { display:none; flex:1; flex-direction:column; background:#fff; overflow-y:auto; }
+#mail-view.active { display:flex; }
+.mail-view-header { padding:16px 24px 8px; border-bottom:1px solid #eee; }
+.mail-view-title { font-size:22px; font-weight:400; color:#202124; margin-bottom:16px; }
+.mail-view-meta { display:flex; align-items:flex-start; gap:12px; }
+.mail-view-meta .avatar {
+  width:40px; height:40px; border-radius:50%; background:#1a1a2e; color:#e8e8e8;
+  display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;
+  border:2px solid #c9a227;
+}
+.mail-view-from { font-size:14px; color:#202124; }
+.mail-view-from strong { font-weight:600; }
+.mail-view-to { font-size:12px; color:#5f6368; margin-top:2px; }
+.mail-view-date { margin-left:auto; font-size:12px; color:#5f6368; }
+.mail-view-body {
+  padding:24px 32px 40px; max-width:720px; line-height:1.65; color:#202124; font-size:14.5px;
+  position:relative; background-color:#fff;
+}
+/* SCP logo watermark */
+.mail-view-body::before {
+  content:'';
+  position:absolute; inset:0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Ccircle cx='100' cy='100' r='90' fill='none' stroke='%231a1a2e' stroke-width='6' opacity='0.08'/%3E%3Ccircle cx='100' cy='100' r='70' fill='none' stroke='%231a1a2e' stroke-width='3' opacity='0.08'/%3E%3Cpath d='M100 25 L100 175 M25 100 L175 100' stroke='%231a1a2e' stroke-width='5' opacity='0.08'/%3E%3Ctext x='100' y='110' text-anchor='middle' font-family='Arial Black,Arial,sans-serif' font-size='36' font-weight='900' fill='%231a1a2e' opacity='0.09'%3ESCP%3C/text%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center 35%;
+  background-size: 340px 340px;
+  pointer-events: none;
+  z-index: 0;
+}
+.mail-view-body > * { position: relative; z-index: 1; }
+.mail-view-body .classif {
+  display:inline-block; background:#1a1a2e; color:#c9a227; font-size:11px;
+  letter-spacing:1.5px; padding:3px 10px; border-radius:2px; margin-bottom:16px; font-weight:600;
+}
+.mail-view-body p { margin-bottom:14px; }
+.mail-view-body .zone-box {
+  background:linear-gradient(145deg, #0f0f1a 0%, #1a1a2e 100%);
+  border:1px solid #c9a227; border-radius:8px; padding:20px 24px; margin:24px 0; color:#e8e8e8;
+}
+.mail-view-body .zone-box h3 { color:#c9a227; font-size:15px; letter-spacing:1px; margin-bottom:12px; text-transform:uppercase; }
+.mail-view-body .zone-box ul { list-style:none; padding:0; }
+.mail-view-body .zone-box li { padding:6px 0; padding-left:20px; position:relative; }
+.mail-view-body .zone-box li::before { content:'▸'; position:absolute; left:0; color:#c9a227; }
+.mail-cta {
+  display:inline-block; margin-top:8px;
+  background:linear-gradient(180deg, #c9a227 0%, #a07d12 100%);
+  color:#1a1a2e; font-weight:700; font-size:15px; letter-spacing:0.5px;
+  padding:14px 32px; border-radius:6px; text-decoration:none;
+  box-shadow:0 4px 12px rgba(201,162,39,0.35);
+  transition:filter 0.15s, transform 0.1s; border:1px solid #e8c547;
+}
+.mail-cta:hover { filter:brightness(1.08); transform:translateY(-1px); }
+.mail-warning {
+  margin-top:28px; padding:12px 16px; background:#fef7e0; border-left:4px solid #c9a227;
+  font-size:13px; color:#5f4b00;
+}
+.mail-footer-note { margin-top:32px; padding-top:16px; border-top:1px solid #eee; font-size:12px; color:#5f6368; }
+.mail-back {
+  background:none; border:none; color:#5f6368; font-size:20px; cursor:pointer;
+  width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+}
+.mail-back:hover { background:#f1f3f4; }
+
+/* Dialog */
+.error-box {
+  position:fixed; background:#d4d0c8; border:2px solid #888;
+  box-shadow:2px 2px 8px rgba(0,0,0,0.5), inset 1px 1px 0 #fff;
+  z-index:500; min-width:280px; max-width:390px;
+  animation:errorPop 0.12s ease-out; font-family:'Tahoma'; font-size:11px;
+}
+@keyframes errorPop { from{transform:scale(0.82);opacity:0;} to{transform:scale(1);opacity:1;} }
+.err-tb {
+  height:22px; background:linear-gradient(180deg,#0a246a 0%,#3a7cdc 40%,#0a246a 100%);
+  display:flex; align-items:center; justify-content:space-between; padding:0 4px 0 8px;
+}
+.err-tb-text { color:#fff; font-size:11px; font-weight:bold; display:flex; align-items:center; gap:5px; }
+.err-close {
+  width:16px; height:14px; background:linear-gradient(180deg,#e8e8e8,#d4d0c8);
+  border:1px solid #888; border-top-color:#fff; border-left-color:#fff;
+  box-shadow:inset -1px -1px 0 #333; color:#000; font-size:9px; font-weight:bold;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
+.err-close:hover { background:#c44; color:#fff; }
+.err-body { padding:14px; display:flex; gap:12px; align-items:flex-start; }
+.err-ico-warn { width:34px; height:34px; flex-shrink:0; background:#fc0; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#000; font-size:20px; font-weight:bold; border:2px solid #c90; }
+.err-text { color:#000; line-height:1.55; font-size:11px; }
+.err-btns { display:flex; justify-content:center; gap:8px; padding:6px 14px 10px; }
+.wbtn {
+  min-width:75px; height:23px; background:linear-gradient(180deg,#f5f5f5,#d4d0c8);
+  border:2px solid #aaa; border-top-color:#fff; border-left-color:#fff;
+  box-shadow:1px 1px 0 #555; font-family:'Tahoma'; font-size:11px; cursor:pointer; padding:0 10px;
+}
+.wbtn:hover { background:linear-gradient(180deg,#ddeeff,#b8d4f0); }
+</style>
+</head>
+<body>
+<div id="crt"></div>
+<div id="crt-pixel"></div>
+<div id="crt-mask"></div>
+<div id="crt-corners"></div>
+<div id="crt-tint"></div>
+
+<!-- SPLASH -->
+<div id="splash-screen">
+  <div class="splash-win-logo animating" id="splash-logo">
+    <div class="swl swl-r"></div><div class="swl swl-g"></div>
+    <div class="swl swl-b"></div><div class="swl swl-y"></div>
+  </div>
+  <div class="splash-title">Windows</div>
+  <div class="splash-subtitle">Профессиональная</div>
+  <button id="splash-btn">▶ Запустить Windows</button>
+  <div class="splash-hint">Нажмите для начала</div>
+</div>
+
+<!-- BOOT -->
+<div id="boot-screen">
+  <div id="boot-logo">
+    <div class="boot-flag animating" id="boot-flag">
+      <div class="bfq bfq-r"></div><div class="bfq bfq-g"></div>
+      <div class="bfq bfq-b"></div><div class="bfq bfq-y"></div>
+    </div>
+    <h1>Windows</h1>
+    <div class="edition">Профессиональная</div>
+  </div>
+  <div class="boot-bar-wrap"><div id="boot-real-bar"></div></div>
+  <div id="boot-msg">Загрузка...</div>
+</div>
+
+<!-- DESKTOP -->
+<div id="desktop">
+  <svg id="wp-hills" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#5ba3d9"/>
+        <stop offset="60%" stop-color="#3a7ab5"/>
+        <stop offset="100%" stop-color="#1e4d7a"/>
+      </linearGradient>
+    </defs>
+    <rect width="1920" height="1080" fill="url(#sky)"/>
+    <ellipse cx="1400" cy="180" rx="90" ry="90" fill="#ffe08a" opacity="0.9"/>
+    <path d="M0,620 Q300,480 600,560 T1200,500 T1920,580 L1920,1080 L0,1080 Z" fill="#2d6b3a" opacity="0.85"/>
+    <path d="M0,700 Q400,580 800,660 T1600,620 T1920,700 L1920,1080 L0,1080 Z" fill="#3d8a4a" opacity="0.7"/>
+    <path d="M0,780 Q500,700 1000,760 T1920,780 L1920,1080 L0,1080 Z" fill="#4a9c55" opacity="0.6"/>
+  </svg>
+
+  <div class="di" style="top:20px;left:20px;" data-action="computer">
+    <div class="di-icon">💻</div><div class="di-label">Мой компьютер</div>
+  </div>
+  <div class="di" style="top:110px;left:20px;" data-action="docs">
+    <div class="di-icon">📁</div><div class="di-label">Мои документы</div>
+  </div>
+  <div class="di" style="top:200px;left:20px;" data-action="mail">
+    <div class="di-icon">📧</div><div class="di-label">Почта</div>
+  </div>
+  <div class="di" style="top:290px;left:20px;" data-action="snake">
+    <div class="di-icon">🐍</div><div class="di-label">Змейка</div>
+  </div>
+  <div class="di" style="top:380px;left:20px;" data-action="tetris">
+    <div class="di-icon">🧱</div><div class="di-label">Тетрис</div>
+  </div>
+  <div class="di" style="top:470px;left:20px;" data-action="calc">
+    <div class="di-icon">🔢</div><div class="di-label">Калькулятор</div>
+  </div>
+  <div class="di" style="top:20px;left:110px;" data-action="ie">
+    <div class="di-icon">🌐</div><div class="di-label">Internet Explorer</div>
+  </div>
+  <div class="di" style="top:110px;left:110px;" data-action="recycle">
+    <div class="di-icon">🗑️</div><div class="di-label">Корзина</div>
+  </div>
+  <div class="di" style="top:200px;left:110px;" data-action="scp">
+    <div class="di-icon">⬛</div><div class="di-label"> Квартальный отчёт</div>
+  </div>
+
+  <div id="taskbar">
+    <button id="start-btn">
+      <div class="sbl">
+        <div class="sbl-r"></div><div class="sbl-g"></div>
+        <div class="sbl-b"></div><div class="sbl-y"></div>
+      </div>
+      Пуск
+    </button>
+    <div class="ql-area">
+      <div class="ql-icon" title="Почта" data-action="mail">📧</div>
+      <div class="ql-icon" title="Змейка" data-action="snake">🐍</div>
+      <div class="ql-icon" title="Тетрис" data-action="tetris">🧱</div>
+      <div class="ql-icon" title="Калькулятор" data-action="calc">🔢</div>
+    </div>
+    <div id="tray">
+      <span class="tray-icon">🔊</span>
+      <span class="tray-icon">🔗</span>
+      <div id="clock">00:00<br>01.01.2004</div>
+    </div>
+  </div>
+
+  <div id="start-menu">
+    <div class="sm-header">
+      <div class="sm-avatar">👤</div>
+      <div>Пользователь</div>
+    </div>
+    <div class="sm-item" data-action="mail"><span class="ico">📧</span> Почта</div>
+    <div class="sm-item" data-action="snake"><span class="ico">🐍</span> Змейка</div>
+    <div class="sm-item" data-action="tetris"><span class="ico">🧱</span> Тетрис</div>
+    <div class="sm-item" data-action="calc"><span class="ico">🔢</span> Калькулятор</div>
+    <div class="sm-sep"></div>
+    <div class="sm-item" data-action="ie"><span class="ico">🌐</span> Internet Explorer</div>
+    <div class="sm-item" data-action="docs"><span class="ico">📁</span> Мои документы</div>
+    <div class="sm-item" data-action="computer"><span class="ico">💻</span> Мой компьютер</div>
+    <div class="sm-item" data-action="scp"><span class="ico">⬛</span> Квартальный отчёт </div>
+    <div class="sm-sep"></div>
+    <div class="sm-footer">
+      <button class="sm-btn" id="sm-logoff">Выход</button>
+      <button class="sm-btn" id="sm-shutdown">Завершение работы</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<!-- MAIL SCREEN -->
+<div id="mail-screen">
+  <div class="mail-browser-bar">
+    <button class="mail-browser-navbtn" id="mail-back-btn">◀ Назад</button>
+    <button class="mail-browser-navbtn">Вперёд ▶</button>
+    <button class="mail-browser-navbtn">✕</button>
+    <button class="mail-browser-navbtn">⟳</button>
+    <button class="mail-browser-navbtn">🏠</button>
+    <div class="mail-addr">https://mail.foundation.scp/inbox</div>
+  </div>
+  <div class="mail-chrome">
+    <div class="mail-topbar">
+      <div class="mail-logo">
+        <svg width="28" height="28" viewBox="0 0 24 24"><path fill="#4285f4" d="M22 6v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2l.01-12c0-1.1.89-2 1.99-2h16c1.1 0 2 .9 2 2zm-2 0l-8 5-8-5v12h16V6zm-8 3l8-5H4l8 5z"/></svg>
+        <span>Почта</span>
+      </div>
+      <div class="mail-search">🔍 Поиск в почте</div>
+      <div class="mail-user">П</div>
+    </div>
+  </div>
+  <div class="mail-body">
+    <div class="mail-sidebar">
+      <button class="mail-compose">✏️ Написать</button>
+      <div class="mail-nav-item active">📥 Входящие <span class="mail-badge" id="mail-badge">1</span></div>
+      <div class="mail-nav-item">⭐ Помеченные</div>
+      <div class="mail-nav-item">⏰ Отложенные</div>
+      <div class="mail-nav-item">📤 Отправленные</div>
+      <div class="mail-nav-item">📝 Черновики</div>
+      <div class="mail-nav-item">⚠️ Спам</div>
+      <div class="mail-nav-item">🗑️ Корзина</div>
+    </div>
+    <div class="mail-list" id="mail-list-view">
+      <div class="mail-list-header"><span>1–3 из 3</span></div>
+      <div class="mail-row">
+        <div class="mail-avatar" style="background:#5f6368;">G</div>
+        <div class="mail-from">Google</div>
+        <div class="mail-subj">Активность в аккаунте — Новый вход обнаружен</div>
+        <div class="mail-date">14 июн</div>
+      </div>
+      <div class="mail-row">
+        <div class="mail-avatar" style="background:#0d904f;">N</div>
+        <div class="mail-from">System Notify</div>
+        <div class="mail-subj">Еженедельный отчёт безопасности — Всё в норме</div>
+        <div class="mail-date">10 июн</div>
+      </div>
+      <div class="mail-row unread" id="scp-mail-row">
+        <div class="mail-avatar" style="background:#1a1a2e; border:1px solid #c9a227;">⬛</div>
+        <div class="mail-from">ACCESS DENIED · О4</div>
+        <div class="mail-subj">СРОЧНО: Приглашение в персонал Зоны — Только для избранных</div>
+        <div class="mail-date">сейчас</div>
+      </div>
+    </div>
+    <div id="mail-view">
+      <div class="mail-view-header">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <button class="mail-back" id="mail-view-back">←</button>
+          <div class="mail-view-title">СРОЧНО: Приглашение в персонал Зоны — Только для избранных</div>
+        </div>
+        <div class="mail-view-meta">
+          <div class="avatar">⬛</div>
+          <div>
+            <div class="mail-view-from"><strong>ACCESS DENIED</strong> &lt;recruit-04@committee.o4&gt;</div>
+            <div class="mail-view-to">кому: (ACCESS DENIED)</div>
+          </div>
+          <div class="mail-view-date">сегодня, 07:14 МСК</div>
+        </div>
+      </div>
+      <div class="mail-view-body">
+        <div class="classif">УРОВЕНЬ ДОПУСКА: 2 · КОНФИДЕНЦИАЛЬНО</div>
+        <p>Уважаемый кандидат,</p>
+        <p>Вы получили это сообщение, потому что ваши данные были отобраны автоматической системой рекрутинга Фонда. Это не случайность.</p>
+        <p>Фонд SCP приглашает вас рассмотреть возможность вступления в ряды <strong>исследовательского и оперативного персонала</strong> одной из наших действующих зон содержания.</p>
+        <div class="zone-box">
+          <h3>SITE-04 · «Глубокий Архив»</h3>
+          <ul>
+            <li>Исследовательский и полевой персонал</li>
+            <li>Работа с объектами классов Safe / Euclid</li>
+            <li>Полное обеспечение, жильё на территории, второй уровень допуска после прохождения стажировки</li>
+            <li>Строгий отбор · ограниченное количество мест</li>
+          </ul>
+        </div>
+        <p>Если вы готовы принять приглашение и пройти первичный отбор, заполните официальную анкету кандидата. Ответы передаются напрямую в отдел кадров SITE-04.</p>
+        <p style="text-align:center; margin:28px 0 8px;">
+          <a class="mail-cta" id="form-link" href="https://docs.google.com/forms/d/e/1FAIpQLSfNfx0bR5BuXyMM5GBb-NgMdGraOp7Yx9mO0s3QGp_hbYrbgA/viewform?usp=dialog" target="_blank" rel="noopener noreferrer">
+            ПОДАТЬ ЗАЯВКУ НА ВСТУПЛЕНИЕ
+          </a>
+        </p>
+        <p style="text-align:center; font-size:12px; color:#5f6368; margin:0 0 20px; max-width:420px; margin-left:auto; margin-right:auto;">
+          После заполнения анкеты с вами свяжется рекрутер из отдела кадров. Обработка заявки занимает около 24 часов.
+        </p>
+        <div class="mail-warning">
+          ⚠ Разглашение содержания данного сообщения лицам, не имеющим допуска, является нарушением Протокола безопасности Фонда и влечёт соответствующие меры.
+        </div>
+        <div class="mail-footer-note">
+          Secure. Contain. Protect.<br>
+          Служба рекрутирования Комитета О4 · SITE-04<br>
+          Это автоматическое защищённое сообщение. Не отвечайте на него.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let activityDone = false;       // any game/calc used
+let mailUnlocked = false;       // after activity → mail notification + can open
+let invitationOpened = false;
+let streakToast = null;
+
+// ============================================================
+// AUDIO
+// ============================================================
+const AC = window.AudioContext || window.webkitAudioContext;
+let ac;
+function getAC() { if (!ac) ac = new AC(); return ac; }
+function beep(freq, dur, vol) {
+  try {
+    const a = getAC(), t = a.currentTime;
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = 'square'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol||0.1, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t+dur);
+    o.connect(g); g.connect(a.destination);
+    o.start(t); o.stop(t+dur);
+  } catch(e) {}
+}
+function clickSound() { beep(1200, 0.04, 0.07); }
+
+// ============================================================
+// CLOCK
+// ============================================================
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const d = String(now.getDate()).padStart(2,'0');
+  const mo = String(now.getMonth()+1).padStart(2,'0');
+  const y = now.getFullYear();
+  const el = document.getElementById('clock');
+  if (el) el.innerHTML = h+':'+m+'<br>'+d+'.'+mo+'.'+y;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ============================================================
+// TOASTS
+// ============================================================
+function showToast(title, body, icon, onClick, autoHideMs) {
+  const container = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerHTML = `
+    <div class="toast-tb">
+      <span>${title}</span>
+      <div class="toast-close">✕</div>
+    </div>
+    <div class="toast-body">
+      <div class="toast-ico">${icon||'ℹ️'}</div>
+      <div>${body}</div>
+    </div>`;
+  container.appendChild(t);
+  t.querySelector('.toast-close').onclick = (e) => { e.stopPropagation(); hideToast(t); };
+  if (onClick) t.onclick = () => { onClick(); hideToast(t); };
+  if (autoHideMs) setTimeout(() => hideToast(t), autoHideMs);
+  return t;
+}
+function hideToast(t) {
+  if (!t || !t.parentNode) return;
+  t.classList.add('hide');
+  setTimeout(() => t.remove(), 320);
+}
+
+// ============================================================
+// SPLASH → BOOT → DESKTOP
+// ============================================================
+const splash = document.getElementById('splash-screen');
+const boot = document.getElementById('boot-screen');
+const desktop = document.getElementById('desktop');
+const bootBar = document.getElementById('boot-real-bar');
+const bootMsg = document.getElementById('boot-msg');
+
+const bootMessages = [
+  'Проверка оборудования...',
+  'Загрузка ядра...',
+  'Инициализация драйверов...',
+  'Запуск служб...',
+  'Подготовка рабочего стола...',
+  'Готово.'
+];
+
+document.getElementById('splash-btn').addEventListener('click', () => {
+  try { getAC().resume(); } catch(e) {}
+  clickSound();
+  splash.style.display = 'none';
+  boot.style.display = 'flex';
+
+  let progress = 0;
+  let msgIdx = 0;
+  const interval = setInterval(() => {
+    progress += Math.random() * 11 + 5;
+    if (progress > 100) progress = 100;
+    bootBar.style.width = progress + '%';
+    if (msgIdx < bootMessages.length && progress > msgIdx * 17) {
+      bootMsg.textContent = bootMessages[msgIdx++];
+    }
+    if (progress >= 100) {
+      clearInterval(interval);
+      setTimeout(() => {
+        boot.style.display = 'none';
+        desktop.style.display = 'block';
+        // Streak notification on login
+        setTimeout(() => {
+          streakToast = showToast(
+            'Стрик активностей',
+            'Надо будет зайти в <b>Змейку</b> или <b>Тетрис</b>, чтобы закрепить сегодняшний стрик, все равно пока ничего не пришло.',
+            '🔥',
+            null,
+            null // stays until activity
+          );
+        }, 600);
+      }, 400);
+    }
+  }, 160);
+});
+
+// ============================================================
+// START MENU
+// ============================================================
+const startBtn = document.getElementById('start-btn');
+const startMenu = document.getElementById('start-menu');
+startBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  startMenu.classList.toggle('open');
+  clickSound();
+});
+document.addEventListener('click', () => startMenu.classList.remove('open'));
+startMenu.addEventListener('click', e => e.stopPropagation());
+
+document.getElementById('sm-logoff').addEventListener('click', () => {
+  showDialog('Выход из системы', 'Вы действительно хотите выйти?', () => location.reload());
+});
+document.getElementById('sm-shutdown').addEventListener('click', () => {
+  showDialog('Завершение работы', 'Выключить компьютер?', () => {
+    desktop.style.display = 'none';
+    document.body.style.background = '#000';
+  });
+});
+
+// ============================================================
+// DIALOGS
+// ============================================================
+function showDialog(title, text, onOk) {
+  const box = document.createElement('div');
+  box.className = 'error-box';
+  box.style.left = '50%';
+  box.style.top = '40%';
+  box.style.transform = 'translate(-50%,-50%)';
+  box.innerHTML = `
+    <div class="err-tb">
+      <div class="err-tb-text">⚠ ${title}</div>
+      <div class="err-close">✕</div>
+    </div>
+    <div class="err-body">
+      <div class="err-ico-warn">!</div>
+      <div class="err-text">${text}</div>
+    </div>
+    <div class="err-btns">
+      <button class="wbtn" data-ok>ОК</button>
+      <button class="wbtn" data-cancel>Отмена</button>
+    </div>`;
+  document.body.appendChild(box);
+  box.querySelector('.err-close').onclick = () => box.remove();
+  box.querySelector('[data-cancel]').onclick = () => box.remove();
+  box.querySelector('[data-ok]').onclick = () => { box.remove(); if (onOk) onOk(); };
+}
+
+// ============================================================
+// ACTIVITY COMPLETED → MAIL NOTIFICATION
+// ============================================================
+function onActivityComplete() {
+  if (activityDone) return;
+  activityDone = true;
+  mailUnlocked = true;
+
+  // Remove streak toast
+  if (streakToast) { hideToast(streakToast); streakToast = null; }
+
+  // Mail notification (appears after activity ends / closes)
+  setTimeout(() => {
+    showToast(
+      'ACCESS DENIED',
+      'Вам пришло сообщение на почту.<br><span style="color:#666;font-size:10px;">Служба рекрутирования Комитета О4</span>',
+      '📧',
+      () => openMail(),
+      14000
+    );
+  }, 400);
+}
+
+// ============================================================
+// ACTIONS
+// ============================================================
+function handleAction(action) {
+  clickSound();
+  startMenu.classList.remove('open');
+  if (action === 'mail') {
+    if (!mailUnlocked) {
+      showDialog('Почта', 'Нет новых сообщений.\n Видимо пока вы никому не нужны ;( .');
+      return;
+    }
+    openMail();
+  }
+  else if (action === 'ie') {
+    if (!mailUnlocked) {
+      showDialog('Internet Explorer', 'Нет подключения к интернету.\n (Скажи спасибо своему провайдеру, слава богу игры встроенные есть) ');
+      return;
+    }
+    openMail();
+  }
+  else if (action === 'snake') openSnake();
+  else if (action === 'tetris') openTetris();
+  else if (action === 'calc') openCalc();
+  else if (action === 'computer') showDialog('Мой компьютер', 'Локальные диски: C:\\ (Системный)\nСвободно: 12,4 ГБ из 40 ГБ');
+  else if (action === 'docs') showDialog('Мои документы', 'Папка пуста.\n(или засекречена)');
+  else if (action === 'recycle') showDialog('Корзина', 'Корзина пуста.');
+  else if (action === 'scp') showDialog('Квартальный отчёт', 'Доступ запрещён.\n Требуется перезапуск системы и восстановление репозитория.');
+}
+
+document.querySelectorAll('.di, .ql-icon, .sm-item').forEach(el => {
+  el.addEventListener('click', () => {
+    const action = el.getAttribute('data-action');
+    if (action) handleAction(action);
+  });
+});
+
+// ============================================================
+// WINDOW HELPERS
+// ============================================================
+let zCounter = 100;
+function makeWindow(title, width, height, bodyHtml) {
+  const win = document.createElement('div');
+  win.className = 'win';
+  win.style.width = width + 'px';
+  win.style.height = height + 'px';
+  win.style.left = Math.max(40, (window.innerWidth - width) / 2 + (Math.random()*40-20)) + 'px';
+  win.style.top = Math.max(30, (window.innerHeight - height - 50) / 2 + (Math.random()*30-15)) + 'px';
+  win.style.zIndex = ++zCounter;
+  win.innerHTML = `
+    <div class="win-tb">
+      <div class="win-tb-left"><span class="win-tb-title">${title}</span></div>
+      <div class="win-tb-btns"><div class="win-tb-btn win-close">✕</div></div>
+    </div>
+    <div class="win-body">${bodyHtml}</div>`;
+  desktop.appendChild(win);
+
+  // drag
+  const tb = win.querySelector('.win-tb');
+  let dragging = false, ox, oy;
+  tb.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('win-tb-btn')) return;
+    dragging = true;
+    ox = e.clientX - win.offsetLeft;
+    oy = e.clientY - win.offsetTop;
+    win.style.zIndex = ++zCounter;
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    win.style.left = (e.clientX - ox) + 'px';
+    win.style.top = Math.max(0, e.clientY - oy) + 'px';
+  });
+  document.addEventListener('mouseup', () => dragging = false);
+
+  win.querySelector('.win-close').onclick = () => {
+    win.remove();
+  };
+  return win;
+}
+
+// ============================================================
+// CALCULATOR
+// ============================================================
+function openCalc() {
+  const win = makeWindow('Калькулятор', 230, 300, `
+    <div class="calc-body">
+      <div class="calc-display" id="calc-disp">0</div>
+      <div class="calc-keys">
+        <button class="calc-key" data-k="C">C</button>
+        <button class="calc-key" data-k="±">±</button>
+        <button class="calc-key" data-k="%">%</button>
+        <button class="calc-key op" data-k="/">÷</button>
+        <button class="calc-key" data-k="7">7</button>
+        <button class="calc-key" data-k="8">8</button>
+        <button class="calc-key" data-k="9">9</button>
+        <button class="calc-key op" data-k="*">×</button>
+        <button class="calc-key" data-k="4">4</button>
+        <button class="calc-key" data-k="5">5</button>
+        <button class="calc-key" data-k="6">6</button>
+        <button class="calc-key op" data-k="-">−</button>
+        <button class="calc-key" data-k="1">1</button>
+        <button class="calc-key" data-k="2">2</button>
+        <button class="calc-key" data-k="3">3</button>
+        <button class="calc-key op" data-k="+">+</button>
+        <button class="calc-key" data-k="0" style="grid-column:span 2">0</button>
+        <button class="calc-key" data-k=".">.</button>
+        <button class="calc-key eq" data-k="=">=</button>
+      </div>
+    </div>`);
+  let expr = '';
+  const disp = win.querySelector('#calc-disp');
+  let calcUsed = false;
+  win.querySelectorAll('.calc-key').forEach(btn => {
+    btn.addEventListener('click', () => {
+      clickSound();
+      calcUsed = true;
+      const k = btn.getAttribute('data-k');
+      if (k === 'C') { expr = ''; disp.textContent = '0'; }
+      else if (k === '=') {
+        try {
+          const r = Function('"use strict";return (' + expr.replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-') + ')')();
+          disp.textContent = r;
+          expr = String(r);
+        } catch { disp.textContent = 'Error'; expr = ''; }
+      }
+      else if (k === '±') {
+        if (expr) { expr = String(-parseFloat(expr)||0); disp.textContent = expr; }
+      }
+      else {
+        expr += k;
+        disp.textContent = expr;
+      }
+    });
+  });
+  // notify only when calculator window is closed (after use)
+  const closeBtn = win.querySelector('.win-close');
+  const prevClose = closeBtn.onclick;
+  closeBtn.onclick = () => {
+    if (calcUsed) onActivityComplete();
+    win.remove();
+  };
+}
+
+// ============================================================
+// SNAKE
+// ============================================================
+function openSnake() {
+  const W = 280, H = 280, CELL = 14;
+  const cols = Math.floor(W/CELL), rows = Math.floor(H/CELL);
+  const win = makeWindow('Змейка', W+4, H+28, `
+    <canvas id="snake-c" width="${W}" height="${H}" style="display:block;image-rendering:pixelated;"></canvas>
+    <div class="game-info" id="snake-score">Счёт: 0</div>
+    <div class="game-overlay" id="snake-overlay">
+      <div style="font-size:16px;">ЗМЕЙКА</div>
+      <div style="font-size:12px;color:#8f8;">Стрелки / WASD</div>
+      <button id="snake-start">Играть</button>
+    </div>`);
+  const canvas = win.querySelector('#snake-c');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = win.querySelector('#snake-score');
+  const overlay = win.querySelector('#snake-overlay');
+  let snake, dir, nextDir, food, score, loop, alive;
+
+  function reset() {
+    snake = [{x:5,y:5},{x:4,y:5},{x:3,y:5}];
+    dir = {x:1,y:0}; nextDir = {x:1,y:0};
+    food = placeFood(); score = 0; alive = true;
+    scoreEl.textContent = 'Счёт: 0';
+  }
+  function placeFood() {
+    let p;
+    do { p = {x:Math.floor(Math.random()*cols), y:Math.floor(Math.random()*rows)}; }
+    while (snake.some(s => s.x===p.x && s.y===p.y));
+    return p;
+  }
+  function draw() {
+    ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0,0,W,H);
+    // grid
+    ctx.strokeStyle = '#111'; ctx.lineWidth = 1;
+    for (let i=0;i<=cols;i++){ ctx.beginPath(); ctx.moveTo(i*CELL,0); ctx.lineTo(i*CELL,H); ctx.stroke(); }
+    for (let i=0;i<=rows;i++){ ctx.beginPath(); ctx.moveTo(0,i*CELL); ctx.lineTo(W,i*CELL); ctx.stroke(); }
+    // food
+    ctx.fillStyle = '#e33'; ctx.fillRect(food.x*CELL+1, food.y*CELL+1, CELL-2, CELL-2);
+    // snake
+    snake.forEach((s,i) => {
+      ctx.fillStyle = i===0 ? '#0f0' : '#0a0';
+      ctx.fillRect(s.x*CELL+1, s.y*CELL+1, CELL-2, CELL-2);
+    });
+  }
+  function tick() {
+    if (!alive) return;
+    dir = nextDir;
+    const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+    if (head.x<0||head.x>=cols||head.y<0||head.y>=rows || snake.some(s=>s.x===head.x&&s.y===head.y)) {
+      alive = false;
+      clearInterval(loop);
+      overlay.style.display = 'flex';
+      overlay.querySelector('div').textContent = 'ИГРА ОКОНЧЕНА';
+      overlay.querySelectorAll('div')[1].textContent = 'Счёт: ' + score;
+      onActivityComplete(); // one session ended
+      return;
+    }
+    snake.unshift(head);
+    if (head.x===food.x && head.y===food.y) {
+      score++; scoreEl.textContent = 'Счёт: ' + score;
+      food = placeFood();
+      beep(800, 0.05, 0.08);
+    } else snake.pop();
+    draw();
+  }
+  let sessionStarted = false;
+  function start() {
+    sessionStarted = true;
+    reset(); draw();
+    overlay.style.display = 'none';
+    clearInterval(loop);
+    loop = setInterval(tick, 110);
+  }
+  win.querySelector('#snake-start').onclick = start;
+  const keyHandler = e => {
+    if (!win.parentNode) { document.removeEventListener('keydown', keyHandler); return; }
+    const k = e.key.toLowerCase();
+    if ((k==='arrowup'||k==='w') && dir.y===0) nextDir={x:0,y:-1};
+    if ((k==='arrowdown'||k==='s') && dir.y===0) nextDir={x:0,y:1};
+    if ((k==='arrowleft'||k==='a') && dir.x===0) nextDir={x:-1,y:0};
+    if ((k==='arrowright'||k==='d') && dir.x===0) nextDir={x:1,y:0};
+  };
+  document.addEventListener('keydown', keyHandler);
+  win.querySelector('.win-close').addEventListener('click', () => {
+    clearInterval(loop);
+    document.removeEventListener('keydown', keyHandler);
+    if (sessionStarted) onActivityComplete(); // closed after playing
+  });
+  draw();
+}
+
+// ============================================================
+// TETRIS
+// ============================================================
+function openTetris() {
+  const COLS=10, ROWS=18, CELL=16;
+  const W=COLS*CELL, H=ROWS*CELL;
+  const win = makeWindow('Тетрис', W+4, H+28, `
+    <canvas id="tet-c" width="${W}" height="${H}" style="display:block;image-rendering:pixelated;"></canvas>
+    <div class="game-info" id="tet-score">Счёт: 0</div>
+    <div class="game-overlay" id="tet-overlay">
+      <div style="font-size:16px;">ТЕТРИС</div>
+      <div style="font-size:12px;color:#8f8;">← → ↓ поворот:↑/W</div>
+      <button id="tet-start">Играть</button>
+    </div>`);
+  const canvas = win.querySelector('#tet-c');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = win.querySelector('#tet-score');
+  const overlay = win.querySelector('#tet-overlay');
+
+  const SHAPES = [
+    [[1,1,1,1]], // I
+    [[1,1],[1,1]], // O
+    [[0,1,0],[1,1,1]], // T
+    [[1,0,0],[1,1,1]], // J
+    [[0,0,1],[1,1,1]], // L
+    [[0,1,1],[1,1,0]], // S
+    [[1,1,0],[0,1,1]]  // Z
+  ];
+  const COLORS = ['#0ff','#ff0','#a0f','#00f','#f80','#0f0','#f00'];
+  let grid, piece, score, loop, alive;
+
+  function emptyGrid() {
+    return Array.from({length:ROWS}, () => Array(COLS).fill(0));
+  }
+  function newPiece() {
+    const t = Math.floor(Math.random()*SHAPES.length);
+    return { shape: SHAPES[t].map(r=>[...r]), x: Math.floor(COLS/2)-1, y:0, color: COLORS[t] };
+  }
+  function collide(p, dx=0, dy=0) {
+    for (let y=0;y<p.shape.length;y++)
+      for (let x=0;x<p.shape[y].length;x++)
+        if (p.shape[y][x]) {
+          const nx=p.x+x+dx, ny=p.y+y+dy;
+          if (nx<0||nx>=COLS||ny>=ROWS|| (ny>=0 && grid[ny][nx])) return true;
+        }
+    return false;
+  }
+  function merge() {
+    for (let y=0;y<piece.shape.length;y++)
+      for (let x=0;x<piece.shape[y].length;x++)
+        if (piece.shape[y][x] && piece.y+y>=0) grid[piece.y+y][piece.x+x] = piece.color;
+  }
+  function clearLines() {
+    let cleared = 0;
+    for (let y=ROWS-1;y>=0;y--) {
+      if (grid[y].every(c=>c)) {
+        grid.splice(y,1);
+        grid.unshift(Array(COLS).fill(0));
+        cleared++; y++;
+      }
+    }
+    if (cleared) { score += cleared*100; scoreEl.textContent = 'Счёт: '+score; beep(600+cleared*100,0.08,0.1); }
+  }
+  function rotate() {
+    const s = piece.shape;
+    const r = s[0].map((_,i) => s.map(row => row[i]).reverse());
+    const old = piece.shape;
+    piece.shape = r;
+    if (collide(piece)) piece.shape = old;
+  }
+  function draw() {
+    ctx.fillStyle='#0a0a0a'; ctx.fillRect(0,0,W,H);
+    for (let y=0;y<ROWS;y++)
+      for (let x=0;x<COLS;x++)
+        if (grid[y][x]) {
+          ctx.fillStyle = grid[y][x];
+          ctx.fillRect(x*CELL+1,y*CELL+1,CELL-2,CELL-2);
+        }
+    if (piece) {
+      ctx.fillStyle = piece.color;
+      for (let y=0;y<piece.shape.length;y++)
+        for (let x=0;x<piece.shape[y].length;x++)
+          if (piece.shape[y][x])
+            ctx.fillRect((piece.x+x)*CELL+1,(piece.y+y)*CELL+1,CELL-2,CELL-2);
+    }
+  }
+  function tick() {
+    if (!alive) return;
+    if (!collide(piece,0,1)) piece.y++;
+    else {
+      merge(); clearLines();
+      piece = newPiece();
+      if (collide(piece)) {
+        alive=false; clearInterval(loop);
+        overlay.style.display='flex';
+        overlay.querySelector('div').textContent='ИГРА ОКОНЧЕНА';
+        overlay.querySelectorAll('div')[1].textContent='Счёт: '+score;
+        onActivityComplete(); // one session ended
+      }
+    }
+    draw();
+  }
+  let sessionStarted = false;
+  function start() {
+    sessionStarted = true;
+    grid = emptyGrid(); piece = newPiece(); score=0; alive=true;
+    scoreEl.textContent='Счёт: 0';
+    overlay.style.display='none';
+    clearInterval(loop);
+    loop = setInterval(tick, 400);
+    draw();
+  }
+  win.querySelector('#tet-start').onclick = start;
+  const keyHandler = e => {
+    if (!win.parentNode || !alive) { if (!win.parentNode) document.removeEventListener('keydown', keyHandler); return; }
+    const k = e.key.toLowerCase();
+    if (k==='arrowleft'||k==='a') { if (!collide(piece,-1,0)) piece.x--; }
+    if (k==='arrowright'||k==='d') { if (!collide(piece,1,0)) piece.x++; }
+    if (k==='arrowdown'||k==='s') { if (!collide(piece,0,1)) piece.y++; }
+    if (k==='arrowup'||k==='w') rotate();
+    draw();
+  };
+  document.addEventListener('keydown', keyHandler);
+  win.querySelector('.win-close').addEventListener('click', () => {
+    clearInterval(loop);
+    document.removeEventListener('keydown', keyHandler);
+    if (sessionStarted) onActivityComplete(); // closed after playing
+  });
+  draw();
+}
+
+// ============================================================
+// MAIL
+// ============================================================
+const mailScreen = document.getElementById('mail-screen');
+const mailListView = document.getElementById('mail-list-view');
+const mailView = document.getElementById('mail-view');
+
+function openMail() {
+  mailScreen.classList.add('active');
+  desktop.style.display = 'none';
+  showBrowserClose();
+  mailListView.style.display = 'block';
+  mailView.classList.remove('active');
+}
+function closeMail() {
+  mailScreen.classList.remove('active');
+  desktop.style.display = 'block';
+  if (browserCloseEl) browserCloseEl.style.display = 'none';
+}
+
+document.getElementById('mail-back-btn').addEventListener('click', () => {
+  if (mailView.classList.contains('active')) {
+    mailView.classList.remove('active');
+    mailListView.style.display = 'block';
+  } else if (invitationOpened) {
+    closeMail();
+  }
+});
+
+document.getElementById('scp-mail-row').addEventListener('click', () => {
+  clickSound();
+  mailListView.style.display = 'none';
+  mailView.classList.add('active');
+  invitationOpened = true;
+  resetBrowserClose();
+});
+
+document.getElementById('mail-view-back').addEventListener('click', () => {
+  mailView.classList.remove('active');
+  mailListView.style.display = 'block';
+});
+
+// Form link → open form + abruptly play SCP audio/video
+document.getElementById('form-link').addEventListener('click', function(e) {
+  e.preventDefault();
+  const url = 'https://docs.google.com/forms/d/e/1FAIpQLSfNfx0bR5BuXyMM5GBb-NgMdGraOp7Yx9mO0s3QGp_hbYrbgA/viewform?usp=dialog';
+  window.open(url, '_blank', 'noopener,noreferrer');
+  playSCPTransmission();
+});
+
+function playSCPTransmission() {
+  // Full-screen black overlay with the classified visualizer video
+  let overlay = document.getElementById('scp-video-overlay');
+  if (overlay) {
+    overlay.remove(); // force recreate so new video loads
+  }
+  overlay = document.createElement('div');
+  overlay.id = 'scp-video-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:#000;z-index:100000;display:flex;align-items:center;justify-content:center;flex-direction:column;';
+  // cache-bust so browser always fetches the latest thermal video
+  overlay.innerHTML = `
+    <video id="scp-vid" src="anons_scp_visualizer.mp4" autoplay playsinline style="max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain;background:#000;"></video>
+    <button id="scp-vid-close" style="position:absolute;top:12px;right:16px;background:#1a1a2e;color:#c9a227;border:1px solid #c9a227;padding:6px 14px;font-family:'Share Tech Mono',monospace;font-size:12px;cursor:pointer;letter-spacing:1px;z-index:2;">[ ЗАКРЫТЬ ПЕРЕДАЧУ ]</button>
+    <div style="position:absolute;bottom:16px;left:0;right:0;text-align:center;color:#444;font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:2px;">SCP // CLASSIFIED SIGNAL · DO NOT DISTRIBUTE</div>
+  `;
+  document.body.appendChild(overlay);
+  const vid = overlay.querySelector('#scp-vid');
+  vid.volume = 1;
+  vid.play().catch(()=>{
+    // fallback to audio only if video blocked
+    const a = new Audio('anons_scp.mp3?v=thermal2');
+    a.volume = 1;
+    a.play().catch(()=>{});
+  });
+  overlay.querySelector('#scp-vid-close').onclick = () => {
+    vid.pause();
+    overlay.style.display = 'none';
+  };
+  vid.addEventListener('ended', () => {
+    overlay.style.display = 'none';
+  });
+}
+
+// ============================================================
+// FLEEING CLOSE BUTTON
+// ============================================================
+let browserCloseEl = null;
+function createBrowserClose() {
+  browserCloseEl = document.createElement('button');
+  browserCloseEl.id = 'browser-close';
+  browserCloseEl.textContent = '✕';
+  browserCloseEl.title = 'Закрыть';
+  browserCloseEl.style.cssText = 'position:fixed;top:3px;right:6px;left:auto;width:30px;height:20px;z-index:99980;display:none;background:linear-gradient(180deg,#f08a8a,#c0392b);border:1px solid #7a1a1a;border-top:none;border-radius:0 0 4px 4px;color:#fff;font-family:Tahoma;font-size:12px;font-weight:bold;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.5);';
+  document.body.appendChild(browserCloseEl);
+  browserCloseEl.addEventListener('click', () => {
+    if (invitationOpened) closeMail();
+  });
+}
+function showBrowserClose() {
+  if (!browserCloseEl) createBrowserClose();
+  browserCloseEl.style.display = 'block';
+  resetBrowserClose();
+}
+function resetBrowserClose() {
+  if (!browserCloseEl) return;
+  browserCloseEl.style.top = '3px';
+  browserCloseEl.style.right = '6px';
+  browserCloseEl.style.left = 'auto';
+}
+document.addEventListener('mousemove', e => {
+  if (!browserCloseEl || browserCloseEl.style.display === 'none') return;
+  if (invitationOpened) return;
+  const r = browserCloseEl.getBoundingClientRect();
+  const cx = r.left + r.width/2, cy = r.top + r.height/2;
+  const dx = cx - e.clientX, dy = cy - e.clientY;
+  const dist = Math.hypot(dx, dy) || 1;
+  if (dist < 95) {
+    let nx = cx + (dx/dist)*150, ny = cy + (dy/dist)*150;
+    nx = Math.max(18, Math.min(nx, window.innerWidth - 22));
+    ny = Math.max(12, Math.min(ny, window.innerHeight - 70));
+    browserCloseEl.style.left = (nx - r.width/2) + 'px';
+    browserCloseEl.style.top = (ny - r.height/2) + 'px';
+    browserCloseEl.style.right = 'auto';
+  }
+});
+
+document.addEventListener('contextmenu', e => e.preventDefault());
+</script>
+</body>
+</html>
