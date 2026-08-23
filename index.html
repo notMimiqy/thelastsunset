@@ -1374,33 +1374,63 @@ document.getElementById('form-link').addEventListener('click', function(e) {
 function playSCPTransmission() {
   // Full-screen black overlay with the classified visualizer video
   let overlay = document.getElementById('scp-video-overlay');
-  if (overlay) {
-    overlay.remove(); // force recreate so new video loads
-  }
+  if (overlay) overlay.remove();
+
   overlay = document.createElement('div');
   overlay.id = 'scp-video-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:#000;z-index:100000;display:flex;align-items:center;justify-content:center;flex-direction:column;';
-  // cache-bust so browser always fetches the latest thermal video
+
+  // Start muted so browsers allow autoplay, then unmute
   overlay.innerHTML = `
-    <video id="scp-vid" src="anons_scp_visualizer.mp4" autoplay playsinline style="max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain;background:#000;"></video>
+    <video id="scp-vid"
+           src="anons_scp_visualizer.mp4"
+           autoplay
+           playsinline
+           muted
+           style="max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain;background:#000;">
+    </video>
     <button id="scp-vid-close" style="position:absolute;top:12px;right:16px;background:#1a1a2e;color:#c9a227;border:1px solid #c9a227;padding:6px 14px;font-family:'Share Tech Mono',monospace;font-size:12px;cursor:pointer;letter-spacing:1px;z-index:2;">[ ЗАКРЫТЬ ПЕРЕДАЧУ ]</button>
     <div style="position:absolute;bottom:16px;left:0;right:0;text-align:center;color:#444;font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:2px;">SCP // CLASSIFIED SIGNAL · DO NOT DISTRIBUTE</div>
   `;
   document.body.appendChild(overlay);
+
   const vid = overlay.querySelector('#scp-vid');
   vid.volume = 1;
-  vid.play().catch(()=>{
-    // fallback to audio only if video blocked
-    const a = new Audio('anons_scp.mp3?v=thermal2');
-    a.volume = 1;
-    a.play().catch(()=>{});
-  });
+
+  // Play muted first (always allowed), then unmute after it starts
+  const tryPlay = () => {
+    vid.muted = true;
+    const p = vid.play();
+    if (p && typeof p.then === 'function') {
+      p.then(() => {
+        // Unmute after a short delay so the gesture / autoplay succeeds
+        setTimeout(() => {
+          vid.muted = false;
+          vid.volume = 1;
+        }, 250);
+      }).catch(() => {
+        // Last resort: show controls so user can start manually
+        vid.controls = true;
+        vid.muted = false;
+      });
+    }
+  };
+
+  // If metadata already loaded
+  if (vid.readyState >= 2) {
+    tryPlay();
+  } else {
+    vid.addEventListener('loadeddata', tryPlay, { once: true });
+    // Fallback timeout in case loadeddata never fires
+    setTimeout(tryPlay, 800);
+  }
+
   overlay.querySelector('#scp-vid-close').onclick = () => {
     vid.pause();
-    overlay.style.display = 'none';
+    overlay.remove();
   };
   vid.addEventListener('ended', () => {
-    overlay.style.display = 'none';
+    overlay.remove();
   });
 }
 
