@@ -1606,8 +1606,34 @@ function playSCPTransmission() {
   var alertDelay = 6000 + Math.random() * 2000;
   var alertTimer = setTimeout(startIncomingAlert, alertDelay);
 
-  // ── Visualizer (cosmetic only — does NOT touch video audio) ──
-  // Avoid MediaElementSource: it can mute video in Firefox/Edge.
+  // ── Visualizer (real audio spectrum, same as old version) ──
+  // MediaElementSource takes over video audio — connect to destination
+  // first so sound is never lost if analyser setup fails.
+  function setupVisualizer() {
+    if (visEnabled || mediaSource) return;
+    try {
+      var ac = ensureAudioCtx();
+      if (!ac || !ac.createMediaElementSource) return;
+      var src = ac.createMediaElementSource(vid);
+      src.connect(ac.destination); // keep video audible
+      mediaSource = src;
+      try {
+        analyser = ac.createAnalyser();
+        analyser.fftSize = 128;
+        analyser.smoothingTimeConstant = 0.75;
+        src.connect(analyser); // spectrum tap only
+        visEnabled = true;
+      } catch (e2) {
+        analyser = null;
+        visEnabled = false;
+      }
+    } catch (e) {
+      mediaSource = null;
+      analyser = null;
+      visEnabled = false;
+    }
+  }
+
   function resizeVis() {
     var parent = visCanvas.parentElement;
     if (!parent) return;
@@ -1617,22 +1643,27 @@ function playSCPTransmission() {
   }
 
   function drawVisualizer() {
-    if (!isPlaying) return;
+    if (!analyser || !visEnabled) return;
     var w = visCanvas.width, h = visCanvas.height;
+    var bufLen = analyser.frequencyBinCount;
+    var data = new Uint8Array(bufLen);
+    analyser.getByteFrequencyData(data);
     visCtx.clearRect(0, 0, w, h);
     var grad = visCtx.createLinearGradient(0, 0, 0, h);
     grad.addColorStop(0, 'rgba(0,0,0,0)');
-    grad.addColorStop(1, 'rgba(10,10,20,0.55)');
+    grad.addColorStop(1, 'rgba(10,10,20,0.6)');
     visCtx.fillStyle = grad;
     visCtx.fillRect(0, 0, w, h);
     var barCount = 48;
+    var step = Math.max(1, Math.floor(bufLen / barCount));
     var barW = w / barCount;
-    var t = (vid.currentTime || 0) * 4;
     for (var i = 0; i < barCount; i++) {
-      var wave = Math.sin(t + i * 0.45) * 0.35 + Math.sin(t * 1.7 + i * 0.2) * 0.25 + 0.4;
-      var barH = Math.max(2, wave * h * 0.9);
-      var hue = 42 + wave * 18;
-      visCtx.fillStyle = 'hsla(' + hue + ',80%,' + (42 + wave * 20) + '%,0.9)';
+      var sum = 0;
+      for (var j = 0; j < step; j++) sum += data[i * step + j] || 0;
+      var avg = sum / step;
+      var barH = (avg / 255) * h * 0.95;
+      var hue = 42 + (avg / 255) * 20;
+      visCtx.fillStyle = 'hsla(' + hue + ',80%,' + (45 + avg / 8) + '%,0.9)';
       visCtx.fillRect(i * barW + 1, h - barH, Math.max(1, barW - 2), barH);
     }
     visAnimId = requestAnimationFrame(drawVisualizer);
@@ -1640,12 +1671,11 @@ function playSCPTransmission() {
 
   function startVisualizer() {
     resizeVis();
-    visEnabled = true;
-    if (!visAnimId) drawVisualizer();
+    setupVisualizer();
+    if (visEnabled && analyser && !visAnimId) drawVisualizer();
   }
 
   function stopVisualizer() {
-    visEnabled = false;
     if (visAnimId) { cancelAnimationFrame(visAnimId); visAnimId = null; }
     try { visCtx.clearRect(0, 0, visCanvas.width, visCanvas.height); } catch (e) {}
   }
@@ -1673,6 +1703,8 @@ function playSCPTransmission() {
       clearTimeout(alertTimer);
       stopIncomingAlert();
       ensureAudioCtx();
+      // Wire visualizer in the same user gesture (required by browsers)
+      setupVisualizer();
       var p = vid.play();
       if (p && typeof p.then === 'function') {
         p.then(function() {
